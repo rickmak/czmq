@@ -64,7 +64,7 @@ static bool s_initialized = false;
 //  Default globals for new sockets and other joys; these can all be set
 //  from the environment, or via the zsys_set_xxx API.
 static size_t s_io_threads = 1;     //  ZSYS_IO_THREADS=1
-static size_t s_max_sockets = 1024; //  ZSYS_MAX_SOCKETS=1024
+static size_t s_max_sockets = 10240; //  ZSYS_MAX_SOCKETS=10240
 static size_t s_linger = 0;         //  ZSYS_LINGER=0
 static size_t s_sndhwm = 1000;      //  ZSYS_SNDHWM=1000
 static size_t s_rcvhwm = 1000;      //  ZSYS_RCVHWM=1000
@@ -179,10 +179,8 @@ zsys_init (void)
     assert (!s_process_ctx);
     //  We use zmq_init/zmq_term to keep compatibility back to ZMQ v2
     s_process_ctx = zmq_init ((int) s_io_threads);
-#if defined (ZMQ_MAX_SOCKETS)
     zsys_info ("SETTING MAX SOCKETS: %d", (int) s_max_sockets);
     zmq_ctx_set (s_process_ctx, ZMQ_MAX_SOCKETS, (int) s_max_sockets);
-#endif
     s_initialized = true;
 
     //  The following functions call zsys_init(), so they MUST be called after
@@ -1161,10 +1159,8 @@ zsys_set_io_threads (size_t io_threads)
     zmq_term (s_process_ctx);
     s_io_threads = io_threads;
     s_process_ctx = zmq_init ((int) s_io_threads);
-#if defined (ZMQ_MAX_SOCKETS)
     zsys_info ("SETTING MAX SOCKETS: %d", (int) s_max_sockets);
     zmq_ctx_set (s_process_ctx, ZMQ_MAX_SOCKETS, (int) s_max_sockets);
-#endif
     ZMUTEX_UNLOCK (s_mutex);
 }
 
@@ -1185,10 +1181,8 @@ zsys_set_max_sockets (size_t max_sockets)
         zsys_error ("zsys_max_sockets() is not valid after creating sockets");
     assert (s_open_sockets == 0);
     s_max_sockets = max_sockets? max_sockets: zsys_socket_limit ();
-#if defined (ZMQ_MAX_SOCKETS)
     zsys_info ("SETTING MAX SOCKETS: %d", (int) s_max_sockets);
     zmq_ctx_set (s_process_ctx, ZMQ_MAX_SOCKETS, (int) s_max_sockets);
-#endif
     ZMUTEX_UNLOCK (s_mutex);
 }
 
@@ -1200,7 +1194,6 @@ size_t
 zsys_socket_limit (void)
 {
     size_t socket_limit;
-#if defined (ZMQ_SOCKET_LIMIT)
     if (s_process_ctx)
         socket_limit = (size_t) zmq_ctx_get (s_process_ctx, ZMQ_SOCKET_LIMIT);
     else {
@@ -1213,9 +1206,6 @@ zsys_socket_limit (void)
     //  if we're running on an older library, enforce a sane limit.
     if (socket_limit > 65535)
         socket_limit = 65535;
-#else
-    socket_limit = 1024;
-#endif
     return socket_limit;
 }
 
